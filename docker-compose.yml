@@ -1,0 +1,99 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: be_app
+    ports:
+      - "5551:5551"
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT_1: 6380
+      REDIS_PORT_2: 6381
+      DB_HOST: mariadb
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: root
+      DB_NAME: testdb
+      SMTP_HOST: smtp.gmail.com
+      SMTP_PORT: 587
+      SMTP_USER: homequy001@gmail.com
+      SMTP_PASS: igac qiql likk tujb
+      EMAIL_USER: homequy001@gmail.com
+      EMAIL_PASS: igac qiql likk tujb
+    networks:
+      - my_network
+    restart: unless-stopped
+
+  mariadb:
+    image: mariadb:latest
+    container_name: mariadb
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: testdb
+      MYSQL_USER: root
+      MYSQL_PASSWORD: root
+    ports:
+      - "3306:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - my_network
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$$MYSQL_ROOT_PASSWORD" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:latest
+    container_name: my-redis
+    ports:
+      - "6380:6380"
+      - "6381:6381"
+    volumes:
+      - ./redis.conf:/usr/local/etc/redis/redis-1.conf
+      - ./redis-2.conf:/usr/local/etc/redis/redis-2.conf
+    command: >
+      sh -c "redis-server /usr/local/etc/redis/redis-1.conf & redis-server /usr/local/etc/redis/redis-2.conf"
+    networks:
+      - my_network
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
+    container_name: elasticsearch_v2
+    environment:
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.security.enabled=false
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - my_network
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9200" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+
+networks:
+  my_network:
+    driver: bridge
+
+volumes:
+  mariadb_data:
+  redis_data:
+  elasticsearch_data:
