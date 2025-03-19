@@ -8,9 +8,9 @@ services:
       - "5551:5551"
     depends_on:
       mariadb:
-        condition: service_healthy
-      redis:
         condition: service_started
+      redis:
+        condition: service_healthy
       elasticsearch:
         condition: service_healthy
     environment:
@@ -30,7 +30,7 @@ services:
       EMAIL_PASS: igac qiql likk tujb
     networks:
       - my_network
-    restart: unless-stopped
+    restart: on-failure
 
   mariadb:
     image: mariadb:latest
@@ -38,8 +38,7 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: testdb
-      MYSQL_USER: root
-      MYSQL_PASSWORD: root
+      # Loại bỏ MYSQL_USER và MYSQL_PASSWORD vì không cần thiết nếu chỉ dùng tài khoản root
     ports:
       - "3306:3306"
     volumes:
@@ -48,10 +47,11 @@ services:
     networks:
       - my_network
     healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$$MYSQL_ROOT_PASSWORD" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot" ]
+      interval: 30s
+      timeout: 15s
+      retries: 15
+      start_period: 60s
     restart: unless-stopped
 
   redis:
@@ -67,6 +67,12 @@ services:
       sh -c "redis-server /usr/local/etc/redis/redis-1.conf & redis-server /usr/local/etc/redis/redis-2.conf"
     networks:
       - my_network
+    healthcheck:
+      test: [ "CMD", "sh", "-c", "redis-cli -p 6380 ping | grep PONG && redis-cli -p 6381 ping | grep PONG" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
@@ -95,5 +101,6 @@ networks:
 
 volumes:
   mariadb_data:
-  redis_data:
   elasticsearch_data:
+
+
